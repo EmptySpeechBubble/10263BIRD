@@ -3668,8 +3668,12 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
 
                     // Only draw UI if not fully faded
                     if (fadeOpacity > 0) {
-                        // Draw name label without lock icon
-                        const labelText = getAnimalName(lockedAnimal, lockedAnimalType);
+                        // Get current action for display
+                        const entityAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
+
+                        // Draw name label with action (e.g., "Alex the Sparrow is Collecting")
+                        const baseName = getAnimalName(lockedAnimal, lockedAnimalType);
+                        const labelText = `${baseName} is ${entityAction}`;
                         const labelX = lockedAnimal.x;
                         const labelY = lockedAnimal.y - 45;
 
@@ -3722,27 +3726,27 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                         // Calculate health based on hunger (max hunger is 800, so divide by 8)
                         health = Math.max(0, 100 - (lockedAnimal.hunger / 8));
                         hunger = lockedAnimal.hunger || 0;
-                        currentAction = lockedAnimal.state || "Flying";
+                        currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
                     } else if (lockedAnimalType === 'squirrel') {
                         health = lockedAnimal.health || 100;
                         hunger = lockedAnimal.hunger || 0;
-                        currentAction = lockedAnimal.state || "Wandering";
+                        currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
                     } else if (lockedAnimalType === 'rat') {
                         health = lockedAnimal.health || 100;
                         hunger = lockedAnimal.hunger || 0;
-                        currentAction = lockedAnimal.state || "Scavenging";
+                        currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
                     } else if (lockedAnimalType === 'tree') {
                         health = lockedAnimal.health || 100;
                         hunger = -1; // Trees don't have hunger
-                        currentAction = `Age: ${Math.floor(lockedAnimal.age / 1000)}s`;
+                        currentAction = `Growing (${Math.floor(lockedAnimal.age / 1000)}s)`;
                     } else if (lockedAnimalType === 'crow') {
                         health = 100;
                         hunger = 0;
-                        currentAction = lockedAnimal.state || "Hunting";
+                        currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
                     } else if (lockedAnimalType === 'owl') {
                         health = 100;
                         hunger = 0;
-                        currentAction = lockedAnimal.state || "Hunting";
+                        currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
                     }
 
                         // Draw current action text
@@ -5211,9 +5215,15 @@ function drawWorms() {
             draw() {
                 // Apply depth scale
                 ctx.save();
-                
-                // Center on tree position
-                ctx.translate(this.x, this.y);
+
+                // Apply parallax effect based on depth when camera is following an entity
+                // Background trees (depth closer to 1) move less than foreground trees (depth closer to 0)
+                const parallaxFactor = lockedAnimal ? (1 - this.depth * 0.5) : 1.0;
+                const parallaxOffsetX = lockedAnimal ? cameraOffsetX * (1 - parallaxFactor) : 0;
+                const parallaxOffsetY = lockedAnimal ? cameraOffsetY * (1 - parallaxFactor) : 0;
+
+                // Center on tree position with parallax adjustment
+                ctx.translate(this.x + parallaxOffsetX, this.y + parallaxOffsetY);
                 ctx.scale(this.scale, this.scale);
                 
                 // Trunk (drawing relative to 0,0)
@@ -15854,6 +15864,67 @@ function spawnOwls() {
             if (type === 'owl') return getOwlName(animal);
             if (type === 'tree') return getTreeName(animal);
             return 'Unknown';
+        }
+
+        // Convert state to readable action text
+        function getReadableAction(state, entityType) {
+            if (!state) return "Resting";
+
+            // Handle tree special case
+            if (entityType === 'tree') {
+                return "Growing";
+            }
+
+            // State to readable action mapping
+            const actionMap = {
+                'idle': 'Resting',
+                'perched': 'Perching',
+                'hunting': 'Hunting',
+                'collecting': 'Collecting',
+                'building': 'Building',
+                'feeding': 'Feeding',
+                'fleeing': 'Fleeing',
+                'sheltering': 'Sheltering',
+                'resting': 'Resting',
+                'bathing': 'Bathing',
+                'flying': 'Flying',
+                'building_birdhouse': 'Building a Home',
+                'hopping': 'Hopping',
+                'sentinel': 'Standing Guard',
+                'mobbing': 'Mobbing',
+                'pecking': 'Pecking',
+                'territorial_display': 'Showing Dominance',
+                'fleeing_ground': 'Escaping',
+                'preening': 'Preening',
+                'sunbathing': 'Sunbathing',
+                'dust_bathing': 'Dust Bathing',
+                'stretching': 'Stretching',
+                'scratching': 'Scratching',
+                'head_bobbing': 'Bobbing Head',
+                'tail_wagging': 'Wagging Tail',
+                'wing_flapping': 'Flapping Wings',
+                'courtship_display': 'Courting',
+                'nest_sitting': 'Sitting on Nest',
+                'foraging': 'Foraging',
+                'caching': 'Hiding Food',
+                'anting': 'Anting',
+                'investigating': 'Investigating',
+                'socializing': 'Socializing',
+                'singing': 'Singing',
+                // Squirrel states
+                'climbing': 'Climbing',
+                'wandering': 'Wandering',
+                'eating': 'Eating',
+                // Rat states
+                'scavenging': 'Scavenging',
+                // Crow states
+                'leaving': 'Leaving',
+                // Owl states
+                'roosting': 'Roosting',
+                'watching': 'Watching'
+            };
+
+            return actionMap[state] || state.charAt(0).toUpperCase() + state.slice(1);
         }
 
         // Register a baby bird with parents
