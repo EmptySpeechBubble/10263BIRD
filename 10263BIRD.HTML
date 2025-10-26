@@ -1421,8 +1421,10 @@ let ants = [];
         let mouseX = 0;
         let mouseY = 0;
         let hoveredBird = null;
-        let lockedAnimal = null; // Can be bird, squirrel, or rat
-        let lockedAnimalType = null; // 'bird', 'squirrel', or 'rat'
+        let lockedAnimal = null; // Can be bird, squirrel, rat, crow, owl, or tree
+        let lockedAnimalType = null; // Type of locked animal
+        let lockedAnimalTime = 0; // Track when animal was locked for auto-fade
+        const LOCKED_UI_FADE_TIME = 10000; // 10 seconds
         let cameraOffsetX = 0;
         let cameraOffsetY = 0;
         let cameraZoom = 1.0; // 1.0 = normal, 1.5 = 50% zoom
@@ -3646,47 +3648,150 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                     animalExists = squirrels.includes(lockedAnimal);
                 } else if (lockedAnimalType === 'rat') {
                     animalExists = rats.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'crow') {
+                    animalExists = crows.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'owl') {
+                    animalExists = owls.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'tree') {
+                    animalExists = trees.includes(lockedAnimal);
                 }
 
                 if (animalExists) {
-                    // Draw name label without lock icon
-                    const labelText = getAnimalName(lockedAnimal, lockedAnimalType);
-                    const labelX = lockedAnimal.x;
-                    const labelY = lockedAnimal.y - 45;
+                    // Calculate fade opacity based on time locked
+                    const timeLocked = Date.now() - lockedAnimalTime;
+                    let fadeOpacity = 1.0;
+                    if (timeLocked > LOCKED_UI_FADE_TIME) {
+                        const fadeTime = 2000; // 2 seconds to fade out
+                        const fadeProgress = Math.min((timeLocked - LOCKED_UI_FADE_TIME) / fadeTime, 1);
+                        fadeOpacity = 1.0 - fadeProgress;
+                    }
 
-                    ctx.font = 'bold 16px Arial';
-                    const textMetrics = ctx.measureText(labelText);
-                    const padding = 10;
-                    const bgWidth = textMetrics.width + padding * 2;
-                    const bgHeight = 24;
+                    // Only draw UI if not fully faded
+                    if (fadeOpacity > 0) {
+                        // Draw name label without lock icon
+                        const labelText = getAnimalName(lockedAnimal, lockedAnimalType);
+                        const labelX = lockedAnimal.x;
+                        const labelY = lockedAnimal.y - 45;
 
-                    // Draw locked background (blue tint)
-                    ctx.fillStyle = 'rgba(50, 100, 200, 0.9)';
-                    ctx.fillRect(labelX - bgWidth / 2, labelY - bgHeight / 2, bgWidth, bgHeight);
+                        ctx.font = 'bold 16px Arial';
+                        const textMetrics = ctx.measureText(labelText);
+                        const padding = 10;
+                        const bgWidth = textMetrics.width + padding * 2;
+                        const bgHeight = 24;
 
-                    ctx.strokeStyle = 'rgba(100, 150, 255, 0.8)';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(labelX - bgWidth / 2, labelY - bgHeight / 2, bgWidth, bgHeight);
+                        // Draw locked background (blue tint) with fade
+                        ctx.fillStyle = `rgba(50, 100, 200, ${0.9 * fadeOpacity})`;
+                        ctx.fillRect(labelX - bgWidth / 2, labelY - bgHeight / 2, bgWidth, bgHeight);
 
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(labelText, labelX, labelY);
+                        ctx.strokeStyle = `rgba(100, 150, 255, ${0.8 * fadeOpacity})`;
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(labelX - bgWidth / 2, labelY - bgHeight / 2, bgWidth, bgHeight);
 
-                    // Draw bright highlight around locked animal
-                    ctx.strokeStyle = 'rgba(100, 150, 255, 0.8)';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.arc(lockedAnimal.x, lockedAnimal.y, 30, 0, Math.PI * 2);
-                    ctx.stroke();
+                        ctx.fillStyle = `rgba(255, 255, 255, ${fadeOpacity})`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(labelText, labelX, labelY);
 
-                    // Pulsing effect
-                    const pulseSize = 30 + Math.sin(Date.now() / 200) * 5;
-                    ctx.strokeStyle = 'rgba(100, 150, 255, 0.3)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(lockedAnimal.x, lockedAnimal.y, pulseSize, 0, Math.PI * 2);
-                    ctx.stroke();
+                        // Draw bright highlight around locked animal
+                        ctx.strokeStyle = `rgba(100, 150, 255, ${0.8 * fadeOpacity})`;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(lockedAnimal.x, lockedAnimal.y, 30, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Pulsing effect
+                        const pulseSize = 30 + Math.sin(Date.now() / 200) * 5;
+                        ctx.strokeStyle = `rgba(100, 150, 255, ${0.3 * fadeOpacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(lockedAnimal.x, lockedAnimal.y, pulseSize, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                    // Draw health/hunger bars and current action
+                    const barWidth = 100;
+                    const barHeight = 8;
+                    const barX = lockedAnimal.x - barWidth / 2;
+                    let barY = lockedAnimal.y - 65; // Above the name label
+
+                    // Get entity stats
+                    let health = 100;
+                    let hunger = 0;
+                    let currentAction = "Unknown";
+
+                    if (lockedAnimalType === 'bird') {
+                        health = 100 - (lockedAnimal.hunger / 4); // Estimate health from hunger
+                        hunger = lockedAnimal.hunger;
+                        currentAction = lockedAnimal.state || "Flying";
+                    } else if (lockedAnimalType === 'squirrel') {
+                        health = lockedAnimal.health || 100;
+                        hunger = lockedAnimal.hunger || 0;
+                        currentAction = lockedAnimal.state || "Wandering";
+                    } else if (lockedAnimalType === 'rat') {
+                        health = lockedAnimal.health || 100;
+                        hunger = lockedAnimal.hunger || 0;
+                        currentAction = lockedAnimal.state || "Scavenging";
+                    } else if (lockedAnimalType === 'tree') {
+                        health = lockedAnimal.health || 100;
+                        hunger = -1; // Trees don't have hunger
+                        currentAction = `Age: ${Math.floor(lockedAnimal.age / 1000)}s`;
+                    } else if (lockedAnimalType === 'crow') {
+                        health = 100;
+                        hunger = 0;
+                        currentAction = lockedAnimal.state || "Hunting";
+                    } else if (lockedAnimalType === 'owl') {
+                        health = 100;
+                        hunger = 0;
+                        currentAction = lockedAnimal.state || "Hunting";
+                    }
+
+                        // Draw current action text
+                        ctx.font = '12px Arial';
+                        ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * fadeOpacity})`;
+                        ctx.textAlign = 'center';
+                        ctx.fillText(currentAction, lockedAnimal.x, barY - 5);
+                        barY -= 15;
+
+                        // Draw health bar
+                        ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * fadeOpacity})`;
+                        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                        const healthPercent = Math.max(0, Math.min(100, health)) / 100;
+                        const healthColor = healthPercent > 0.5 ? `rgba(76, 175, 80, ${fadeOpacity})` : (healthPercent > 0.25 ? `rgba(255, 193, 7, ${fadeOpacity})` : `rgba(244, 67, 54, ${fadeOpacity})`);
+                        ctx.fillStyle = healthColor;
+                        ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * fadeOpacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                        // Health label
+                        ctx.font = '10px Arial';
+                        ctx.fillStyle = `rgba(255, 255, 255, ${fadeOpacity})`;
+                        ctx.textAlign = 'left';
+                        ctx.fillText('HP', barX - 20, barY + 6);
+
+                        // Draw hunger bar (if applicable)
+                        if (hunger >= 0) {
+                            barY += barHeight + 4;
+
+                            ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * fadeOpacity})`;
+                            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                            const hungerPercent = Math.max(0, Math.min(100, (hunger / 400) * 100)) / 100; // 400 is max hunger
+                            const hungerColor = hungerPercent < 0.5 ? `rgba(76, 175, 80, ${fadeOpacity})` : (hungerPercent < 0.75 ? `rgba(255, 193, 7, ${fadeOpacity})` : `rgba(244, 67, 54, ${fadeOpacity})`);
+                            ctx.fillStyle = hungerColor;
+                            ctx.fillRect(barX, barY, barWidth * hungerPercent, barHeight);
+
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 * fadeOpacity})`;
+                            ctx.lineWidth = 1;
+                            ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                            // Hunger label
+                            ctx.fillStyle = `rgba(255, 255, 255, ${fadeOpacity})`;
+                            ctx.textAlign = 'left';
+                            ctx.fillText('🍽️', barX - 20, barY + 6);
+                        }
+                    }
                 } else {
                     // Animal was removed, clear lock
                     lockedAnimal = null;
@@ -5057,11 +5162,12 @@ function drawWorms() {
                 this.scale = 1 - this.depth * 0.3; // Scale based on depth (0.7x to 1.0x)
                 this.age = Math.random() * (TREE_LIFESPAN * 0.5); // Stagger initial ages
 
-                // Add depth variance: foreground trees (depth < 0.3) start deeper in grass
-                // Enhanced: wider vertical spawn range - can be above, at, or below ground
-                // This creates more natural tree placement with varied heights
-                const depthOffset = this.depth < 0.3 ? (20 + Math.random() * 40) : (Math.random() * 30 - 10);
+                // Trees should have trunk touching ground, but can vary in depth for foreground effect
+                // Foreground trees (depth < 0.3) go deeper into grass for depth perception
+                // Background trees stay at or just below the ground line
+                const depthOffset = this.depth < 0.3 ? (20 + Math.random() * 40) : (Math.random() * 20);
                 this.depthOffset = depthOffset; // Store for resize preservation
+                // Position at ground line - trunk will extend upward from here
                 this.y = canvas.height * GROUND_HEIGHT_RATIO + depthOffset;
 
                 // Make foreground trees slightly thicker for more depth perception
@@ -8113,10 +8219,18 @@ if ((isRaining || timeOfDay >= 1) && Math.random() < 0.4) { // 40% chance to see
                             // After preening, birds usually rest or resume normal activity
                             if (this.hunger > HUNGER_CRITICAL_THRESHOLD - 100) {
                                 this.findFoodSource();
-                            } else if (this.isOnGround && Math.random() < 0.4) {
-                                // Continue ground activities
-                                this.state = BIRD_STATES.HOPPING;
-                                this.stateTimer = 0;
+                            } else if (this.isOnGround && Math.random() < 0.3) {
+                                // Reduced chance to continue ground activities (0.4 -> 0.3)
+                                // Only transition to hopping if bird hasn't been hopping recently
+                                if (!this.lastHopTime || Date.now() - this.lastHopTime > 60000) {
+                                    this.state = BIRD_STATES.HOPPING;
+                                    this.stateTimer = 0;
+                                    this.lastHopTime = Date.now();
+                                } else {
+                                    // Rest instead to prevent quick transitions
+                                    this.state = BIRD_STATES.RESTING;
+                                    this.stateTimer = 0;
+                                }
                             } else if (Math.random() < 0.6) {
                                 this.findPerch();
                             } else {
@@ -8632,15 +8746,26 @@ if (this.pathIndex >= this.path.length) {
     }
     
     // Only exit hopping after extended time AND when on ground
-    if (this.stateTimer > BIRD_STATE_DURATION.HOPPING) {
+    // IMPORTANT: Minimum stay on ground to prevent quick slam behavior
+    const MIN_HOPPING_TIME = 30000; // At least 30 seconds of hopping before transitioning
+    if (this.stateTimer > Math.max(MIN_HOPPING_TIME, BIRD_STATE_DURATION.HOPPING * 0.5)) {
         if (!this.hopData || this.hopData.phase === "ground") {
+            // Only exit if bird has been hopping for a while and is on ground
+            // Prevent quick flying→hopping→flying transitions
+            if (this.stateTimer < MIN_HOPPING_TIME) {
+                // Stay in hopping state longer
+                break;
+            }
+
             // Exit to flying or perching (don't reset timer - let it naturally end)
             if (Math.random() < 0.7) {
                 this.findPerch();
+                this.hopData = null; // Clear hop data
             } else {
-                this.state = BIRD_STATES.IDLE;
+                this.state = BIRD_STATES.RESTING; // Rest instead of IDLE for smoother transition
                 this.stateTimer = 0;
-                debugLog("Bird finished hopping, now idle");
+                this.hopData = null; // Clear hop data
+                debugLog("Bird finished hopping, now resting");
             }
         }
         // If mid-hop, let it finish the current hop naturally without resetting timer
@@ -17443,6 +17568,7 @@ if (gameboy) {
             } else {
                 lockedAnimal = bird;
                 lockedAnimalType = 'bird';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
                 debugLog(`Locked onto bird: ${getBirdName(bird)}`);
 
                 // Make the bird chirp when clicked/locked
@@ -17470,6 +17596,7 @@ if (gameboy) {
             } else {
                 lockedAnimal = squirrel;
                 lockedAnimalType = 'squirrel';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
                 debugLog(`Locked onto squirrel: ${getSquirrelName(squirrel)}`);
             }
             return; // Skip food scattering
@@ -17492,9 +17619,76 @@ if (gameboy) {
             } else {
                 lockedAnimal = rat;
                 lockedAnimalType = 'rat';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
                 debugLog(`Locked onto rat: ${getRatName(rat)}`);
             }
             return; // Skip food scattering
+        }
+    }
+
+    // Check crows
+    for (const crow of crows) {
+        const crowDist = Math.sqrt(
+            Math.pow(scaledX - crow.x, 2) +
+            Math.pow(scaledY - crow.y, 2)
+        );
+        if (crowDist < 30) {
+            clickedAnAnimal = true;
+            if (lockedAnimal === crow && lockedAnimalType === 'crow') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from crow`);
+            } else {
+                lockedAnimal = crow;
+                lockedAnimalType = 'crow';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto crow: ${getCrowName(crow)}`);
+            }
+            return;
+        }
+    }
+
+    // Check owls
+    for (const owl of owls) {
+        const owlDist = Math.sqrt(
+            Math.pow(scaledX - owl.x, 2) +
+            Math.pow(scaledY - owl.y, 2)
+        );
+        if (owlDist < 30) {
+            clickedAnAnimal = true;
+            if (lockedAnimal === owl && lockedAnimalType === 'owl') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from owl`);
+            } else {
+                lockedAnimal = owl;
+                lockedAnimalType = 'owl';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto owl: ${getOwlName(owl)}`);
+            }
+            return;
+        }
+    }
+
+    // Check trees
+    for (const tree of trees) {
+        const treeDist = Math.sqrt(
+            Math.pow(scaledX - tree.x, 2) +
+            Math.pow(scaledY - (tree.y - tree.trunkHeight/2), 2)
+        );
+        if (treeDist < tree.trunkWidth * 2 + 50) { // Larger click area for trees
+            clickedAnAnimal = true;
+            if (lockedAnimal === tree && lockedAnimalType === 'tree') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from tree`);
+            } else {
+                lockedAnimal = tree;
+                lockedAnimalType = 'tree';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto tree: ${getTreeName(tree)}`);
+            }
+            return;
         }
     }
 
