@@ -301,6 +301,10 @@
                     <input type="checkbox" id="diaryToggle" style="margin-right: 5px;">
                     📖
                 </label>
+                <label style="cursor: pointer; user-select: none;" title="Developer Tools">
+                    <input type="checkbox" id="debugToggle" style="margin-right: 5px;">
+                    🔧
+                </label>
             </div>
             <button id="screenshotBtn" class="screenshot-btn">📷 Take Screenshot</button>
             <button id="manualBtn" class="manual-btn">📖 Guide & Features</button>
@@ -352,9 +356,9 @@
             <h3>⚡ Quick Start</h3>
             <ul>
                 <li><strong>Click/Tap:</strong> Drop food for birds</li>
-                <li><strong>Triple-click (top area):</strong> Open debug controls</li>
-                <li><strong>Info button (ℹ️):</strong> See ecosystem stats and toggle clock display</li>
+                <li><strong>Info button (ℹ️):</strong> See ecosystem stats, toggle clock display, and access settings</li>
                 <li><strong>Clock toggle:</strong> In info panel, enable real-time clock with weather forecast</li>
+                <li><strong>Diary toggle:</strong> View your garden's story and bird families</li>
             </ul>
 
             <p><em>Want to know more? Expand the sections below:</em></p>
@@ -1447,6 +1451,8 @@ let birdTrails = []; // Will store past positions of birds
 const MAX_TRAIL_LENGTH = 100; // How many past positions to remember
 let mushroomEffectSpeed = 0.03; // Control speed of mushroom mode effects
 let playingTheHits = false; // Flag to disable random chirps during playthehits performance
+let foodMaxedOutTimer = 0; // Track how long food has been at max
+const FOOD_MAX_RAT_ATTRACTION_TIME = 30000; // 30 seconds of max food attracts rats
 
 // Rainbow variables
 let rainbowVisible = false;
@@ -1544,12 +1550,21 @@ let rainsCompleted = 0; // Track number of completed rain events (for pond forma
             'Dusk', 'River', 'Brook', 'Meadow', 'Forest', 'Sage', 'Basil', 'Rosemary',
             'Jasper', 'Onyx', 'Pearl', 'Amber', 'Jade', 'Coral', 'Ivy', 'Fern',
             'Thistle', 'Clover', 'Poppy', 'Daisy', 'Violet', 'Lily', 'Rose', 'Iris',
-            // Normal/office/real-life people names
+            // Normal American names
             'Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Quinn',
             'Charlie', 'Jamie', 'Blake', 'Drew', 'Parker', 'Avery', 'Reese', 'Harper',
             'Elliot', 'Skylar', 'Peyton', 'Cameron', 'Dakota', 'Rowan', 'Sage', 'River',
             'Finley', 'Hayden', 'Logan', 'Ryan', 'Jesse', 'Kelly', 'Terry', 'Robin',
-            'Pat', 'Chris', 'Nico', 'Ash', 'Jules', 'Max', 'Lee', 'Ray'
+            'Pat', 'Chris', 'Nico', 'Ash', 'Jules', 'Max', 'Lee', 'Ray',
+            // More American names
+            'Ben', 'Emma', 'Jack', 'Olivia', 'Noah', 'Sophia', 'Liam', 'Ava',
+            'Mason', 'Mia', 'Lucas', 'Ella', 'Ethan', 'Grace', 'James', 'Chloe',
+            'Oliver', 'Zoe', 'Henry', 'Lily', 'Michael', 'Emily', 'Daniel', 'Hannah',
+            'Matthew', 'Sarah', 'David', 'Rachel', 'Joseph', 'Madison', 'Andrew', 'Sophie',
+            'John', 'Natalie', 'Luke', 'Abby', 'Nick', 'Katie', 'Tom', 'Molly',
+            'Will', 'Annie', 'Jake', 'Maggie', 'Pete', 'Becky', 'Frank', 'Jenny',
+            'Steve', 'Laura', 'Bob', 'Amy', 'Tim', 'Beth', 'Mark', 'Claire',
+            'Paul', 'Diana', 'Rick', 'Fiona', 'Greg', 'Heather', 'Dan', 'Jessica'
         ];
 
         // Squirrel name pool
@@ -1568,8 +1583,35 @@ let rainsCompleted = 0; // Track number of completed rain events (for pond forma
             'Dusty', 'Smokey', 'Pepper', 'Ash', 'Coal', 'Soot'
         ];
 
+        // Crow name pool
+        const CROW_NAME_POOL = [
+            'Edgar', 'Poe', 'Raven', 'Corvus', 'Huginn', 'Muninn', 'Crowley', 'Morrigan',
+            'Odin', 'Shadow', 'Midnight', 'Coal', 'Jet', 'Obsidian', 'Noir', 'Shade',
+            'Phantom', 'Spectre', 'Ghost', 'Spirit', 'Wraith', 'Gloom', 'Dusk', 'Eclipse',
+            'Merlin', 'Salem', 'Gotham', 'Blackwing', 'Nightfall', 'Darkstar'
+        ];
+
+        // Owl name pool
+        const OWL_NAME_POOL = [
+            'Athena', 'Hoot', 'Archimedes', 'Hedwig', 'Errol', 'Pigwidgeon', 'Bubo', 'Jareth',
+            'Glimmer', 'Twilight', 'Moonbeam', 'Starbright', 'Whisper', 'Silent', 'Hunter', 'Talon',
+            'Screech', 'Barny', 'Horace', 'Minerva', 'Noctis', 'Luna', 'Celeste', 'Aurora',
+            'Sage', 'Wisdom', 'Oracle', 'Seer', 'Prophet', 'Mystic'
+        ];
+
+        // Tree name pool
+        const TREE_NAME_POOL = [
+            'Oakley', 'Aspen', 'Sequoia', 'Redwood', 'Cypress', 'Magnolia', 'Elm', 'Hickory',
+            'Sycamore', 'Chestnut', 'Juniper', 'Acacia', 'Baobab', 'Elder', 'Elderwood', 'Ironwood',
+            'Thornwood', 'Greenleaf', 'Strongbranch', 'Deeproot', 'Tallshade', 'Oldgrowth', 'Wisewood', 'Ancientbark',
+            'Spruce', 'Fir', 'Hemlock', 'Larch', 'Yew', 'Hawthorn'
+        ];
+
         let squirrelFamilies = new Map(); // Map squirrel ID to name
         let ratFamilies = new Map(); // Map rat ID to name
+        let crowFamilies = new Map(); // Map crow ID to name
+        let owlFamilies = new Map(); // Map owl ID to name
+        let treeFamilies = new Map(); // Map tree ID to name
         let windChimeSounds = [];
         let windChimeTimeout = null;
         let lastWindChimeTime = 0;
@@ -5002,6 +5044,7 @@ function drawWorms() {
         // Tree class
         class Tree {
             constructor(x, trunkWidth, trunkHeight, leafRadius, hasBranches = false) {
+                this.id = Math.random().toString(36).substr(2, 9); // Unique ID for naming
                 this.x = x;
                 this.trunkWidth = trunkWidth;
                 this.trunkHeight = trunkHeight;
@@ -5459,6 +5502,13 @@ if (timeOfDay < 1 && Math.random() < 0.001) {
 
         // V26: Enhanced food placement with no glow effect
         function drawFood(deltaTime) {
+            // Track how long food has been at max to attract rats
+            if (foodItems.length >= MAX_FOOD) {
+                foodMaxedOutTimer += deltaTime;
+            } else {
+                foodMaxedOutTimer = 0; // Reset if not at max
+            }
+
             // Enforce maximum food limit
             if (foodItems.length > MAX_FOOD) {
                 // Sort by timer (oldest first)
@@ -11313,6 +11363,7 @@ if (timeOfDay >= 1 && this.state !== 'leaving') {
 
 class Crow {
     constructor(startX, startY, index) {
+        this.id = Math.random().toString(36).substr(2, 9); // Unique ID for naming
         this.x = startX;
         this.y = startY;
         this.direction = Math.random() < 0.5 ? -1 : 1;
@@ -11771,7 +11822,7 @@ function checkForCrowVisit(deltaTime) {
     // Update timer if visit is in progress
     if (crowVisitInProgress) {
         crowVisitTimer += deltaTime;
-        
+
         // Check if visit should end
         if (crowVisitTimer >= CROW_VISIT_DURATION) {
             // Make crows leave
@@ -11782,20 +11833,23 @@ function checkForCrowVisit(deltaTime) {
         }
         return;
     }
-    
+
     // Don't spawn crows if a scarecrow is present
     if (scarecrow) {
         return;
     }
-    
-    // Only check occasionally
-    if (Math.random() < 0.001) { // 0.1% chance per frame
-        // Check if worm population is excessive
-        if (worms.length >= CROW_WORM_THRESHOLD) {
-            // 20% chance to spawn crows when threshold reached
-            if (Math.random() < 0.2) {
-                spawnMurderOfCrows();
-            }
+
+    // More random crow spawning - varies by worm count
+    // The more worms, the higher the spawn chance, but it's still random
+    const wormExcessFactor = Math.max(0, (worms.length - CROW_WORM_THRESHOLD) / 10);
+    const baseSpawnChance = 0.0005; // Lower base chance (0.05% per frame)
+    const wormBonusChance = wormExcessFactor * 0.0003; // Bonus increases with worm count
+    const totalChance = Math.min(baseSpawnChance + wormBonusChance, 0.003); // Cap at 0.3%
+
+    if (Math.random() < totalChance && worms.length >= CROW_WORM_THRESHOLD) {
+        // Additional random roll to make it even more unpredictable
+        if (Math.random() < 0.15) { // 15% chance after first roll
+            spawnMurderOfCrows();
         }
     }
 }
@@ -11868,8 +11922,14 @@ function spawnMurderOfCrows() {
     crowVisitInProgress = true;
     crowVisitTimer = 0;
 
+    // Get names for all crows for the diary entry
+    const crowNames = crows.map(c => getCrowName(c));
+    const crowNamesText = crowNames.length > 3
+        ? `${crowNames.slice(0, 2).join(', ')} and ${crowNames.length - 2} others`
+        : crowNames.join(', ');
+
     debugLog(`Murder of ${crowCount} crows has arrived!`);
-    addDiaryEntry(`The Great Worm Feast! A murder of ${crowCount} crows descended upon the garden.`, 'visitor');
+    addDiaryEntry(`The Great Worm Feast! A murder of crows (${crowNamesText}) descended upon the garden.`, 'visitor');
 }
 
 // Make all crows leave
@@ -12166,6 +12226,7 @@ function checkForRainbow() {
 
 class Owl {
     constructor(x, y) {
+        this.id = Math.random().toString(36).substr(2, 9); // Unique ID for naming
         this.x = x || (Math.random() < 0.5 ? -30 : canvas.width + 30);
         this.y = y || (canvas.height * 0.3 + Math.random() * 100);
         this.direction = this.x < canvas.width / 2 ? 1 : -1;
@@ -14148,10 +14209,14 @@ function drawAnts() {
         function spawnRats() {
             if (rats.length >= MAX_RATS) return;
 
-            // Base spawn chance, increased by poop count
+            // Base spawn chance, increased by poop count and maxed food
             let spawnChance = 0.04; // Base: 4%
             const poopMultiplier = Math.min(birdPoops.length / 5, 2); // Up to 2x multiplier (caps at 10 poops)
-            spawnChance = spawnChance * (1 + poopMultiplier);
+
+            // If food has been maxed out for a while, attract rats strongly
+            const foodMaxMultiplier = foodMaxedOutTimer > FOOD_MAX_RAT_ATTRACTION_TIME ? 3 : 1;
+
+            spawnChance = spawnChance * (1 + poopMultiplier) * foodMaxMultiplier;
 
             if (Math.random() < spawnChance) {
                 const x = Math.random() < 0.5 ? -30 : canvas.width + 30;
@@ -14351,7 +14416,8 @@ function spawnOwls() {
         // Create new owl
         const owl = new Owl();
         owls.push(owl);
-        
+        const owlName = getOwlName(owl);
+
         // Play owl hoot if wind chimes enabled
         if (windChimeEnabled && audioContext) {
             // Play owl hoot sound
@@ -14362,8 +14428,15 @@ function spawnOwls() {
                 }, i * 500);
             }
         }
-        
-        debugLog(`Owl spawned at (${owl.x}, ${owl.y})${ratKingPresent ? ' attracted by rat king' : ''}`);
+
+        debugLog(`Owl ${owlName} spawned at (${owl.x}, ${owl.y})${ratKingPresent ? ' attracted by rat king' : ''}`);
+
+        // Add diary entry for owl arrival
+        if (ratKingPresent) {
+            addDiaryEntry(`${owlName} the owl sensed the Rat King and swooped in to hunt.`, 'visitor');
+        } else {
+            addDiaryEntry(`Under the cover of night, ${owlName} the owl arrived on silent wings.`, 'visitor');
+        }
     }
 }
 
@@ -15588,11 +15661,71 @@ function spawnOwls() {
             return ratFamilies.get(rat.id);
         }
 
+        // Get or assign a name to a crow
+        function getCrowName(crow) {
+            if (!crowFamilies.has(crow.id)) {
+                const baseName = CROW_NAME_POOL[Math.floor(Math.random() * CROW_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(crowFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                crowFamilies.set(crow.id, finalName);
+            }
+
+            return crowFamilies.get(crow.id);
+        }
+
+        // Get or assign a name to an owl
+        function getOwlName(owl) {
+            if (!owlFamilies.has(owl.id)) {
+                const baseName = OWL_NAME_POOL[Math.floor(Math.random() * OWL_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(owlFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                owlFamilies.set(owl.id, finalName);
+            }
+
+            return owlFamilies.get(owl.id);
+        }
+
+        // Get or assign a name to a tree
+        function getTreeName(tree) {
+            if (!treeFamilies.has(tree.id)) {
+                const baseName = TREE_NAME_POOL[Math.floor(Math.random() * TREE_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(treeFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                treeFamilies.set(tree.id, finalName);
+            }
+
+            return treeFamilies.get(tree.id);
+        }
+
         // General function to get name for any animal type
         function getAnimalName(animal, type) {
             if (type === 'bird') return getBirdName(animal);
             if (type === 'squirrel') return getSquirrelName(animal);
             if (type === 'rat') return getRatName(animal);
+            if (type === 'crow') return getCrowName(animal);
+            if (type === 'owl') return getOwlName(animal);
+            if (type === 'tree') return getTreeName(animal);
             return 'Unknown';
         }
 
@@ -16415,6 +16548,21 @@ if (antHill) {
 
                 debugLog(`Initial pond spawned at (${pondX}, ${pondY}) with koi and frog`);
             }
+
+            // 10% chance to spawn a fully built birdhouse on initial load
+            if (Math.random() < 0.1 && trees.length > 0) {
+                const randomTree = trees[Math.floor(Math.random() * trees.length)];
+                const birdhouseX = randomTree.x;
+                const birdhouseY = randomTree.y - randomTree.trunkHeight - 60;
+
+                const birdhouse = new Birdhouse(birdhouseX, birdhouseY);
+                birdhouse.materialsCollected = BIRDHOUSE_MATERIALS_NEEDED; // Fully built
+                birdhouse.built = true;
+                birdhouses.push(birdhouse);
+
+                debugLog(`Initial birdhouse spawned fully built at (${birdhouseX}, ${birdhouseY})`);
+                addDiaryEntry("A sturdy birdhouse already stands in the garden, waiting for residents.", 'discovery');
+            }
             
             // Schedule first rain
             scheduleRain();
@@ -16538,6 +16686,25 @@ if (antHill) {
             gardenDiary.style.display = 'none';
             diaryToggle.checked = false;
             debugLog("Garden diary closed");
+        });
+    }
+
+    // Debug toggle handler
+    const debugToggle = document.getElementById('debugToggle');
+    const controlPanel = document.getElementById('controlPanel');
+
+    if (debugToggle && controlPanel) {
+        debugToggle.addEventListener('change', () => {
+            if (debugToggle.checked) {
+                debugVisuals = true;
+                controlPanel.style.display = 'block';
+                debugLog("Debug mode enabled via wrench toggle");
+            } else {
+                debugVisuals = false;
+                controlPanel.style.display = 'none';
+                debugLog("Debug mode disabled via wrench toggle");
+            }
+            updateDebugVisuals();
         });
     }
 
@@ -17277,6 +17444,11 @@ if (gameboy) {
                 lockedAnimal = bird;
                 lockedAnimalType = 'bird';
                 debugLog(`Locked onto bird: ${getBirdName(bird)}`);
+
+                // Make the bird chirp when clicked/locked
+                if (bird.chirp && typeof bird.chirp === 'function') {
+                    bird.chirp(CHIRP_TYPES.SOCIAL, 0.8);
+                }
             }
             return; // Skip food scattering
         }
