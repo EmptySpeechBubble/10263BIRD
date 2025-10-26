@@ -3719,8 +3719,9 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                     let currentAction = "Unknown";
 
                     if (lockedAnimalType === 'bird') {
-                        health = 100 - (lockedAnimal.hunger / 4); // Estimate health from hunger
-                        hunger = lockedAnimal.hunger;
+                        // Calculate health based on hunger (max hunger is 800, so divide by 8)
+                        health = Math.max(0, 100 - (lockedAnimal.hunger / 8));
+                        hunger = lockedAnimal.hunger || 0;
                         currentAction = lockedAnimal.state || "Flying";
                     } else if (lockedAnimalType === 'squirrel') {
                         health = lockedAnimal.health || 100;
@@ -3777,7 +3778,8 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                             ctx.fillStyle = `rgba(0, 0, 0, ${0.6 * fadeOpacity})`;
                             ctx.fillRect(barX, barY, barWidth, barHeight);
 
-                            const hungerPercent = Math.max(0, Math.min(100, (hunger / 400) * 100)) / 100; // 400 is max hunger
+                            // Max hunger is 800 for birds, scale to percentage
+                            const hungerPercent = Math.max(0, Math.min(100, (hunger / 800) * 100)) / 100;
                             const hungerColor = hungerPercent < 0.5 ? `rgba(76, 175, 80, ${fadeOpacity})` : (hungerPercent < 0.75 ? `rgba(255, 193, 7, ${fadeOpacity})` : `rgba(244, 67, 54, ${fadeOpacity})`);
                             ctx.fillStyle = hungerColor;
                             ctx.fillRect(barX, barY, barWidth * hungerPercent, barHeight);
@@ -16682,7 +16684,7 @@ if (antHill) {
 
                 const birdhouse = new Birdhouse(birdhouseX, birdhouseY);
                 birdhouse.materialsCollected = BIRDHOUSE_MATERIALS_NEEDED; // Fully built
-                birdhouse.built = true;
+                birdhouse.isComplete = true; // Mark as complete
                 birdhouses.push(birdhouse);
 
                 debugLog(`Initial birdhouse spawned fully built at (${birdhouseX}, ${birdhouseY})`);
