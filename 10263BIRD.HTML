@@ -1609,11 +1609,35 @@ let rainsCompleted = 0; // Track number of completed rain events (for pond forma
             'Spruce', 'Fir', 'Hemlock', 'Larch', 'Yew', 'Hawthorn'
         ];
 
+        const FROG_NAME_POOL = [
+            'Lily', 'Croaker', 'Hoppy', 'Ribbit', 'Splash', 'Puddles', 'Leap', 'Tadpole',
+            'Marsh', 'Pond', 'Mossy', 'Cricket', 'Bullfrog', 'Peeper', 'Spring', 'Dewdrop',
+            'Kermit', 'Freddy', 'Toad', 'Bog', 'Swampy', 'Mire', 'Jumper', 'Hopper',
+            'Greenie', 'Slimy', 'Webfoot', 'Croaky', 'Bumpy', 'Warty'
+        ];
+
+        const KOI_NAME_POOL = [
+            'Kohaku', 'Tancho', 'Sanke', 'Showa', 'Kujaku', 'Ogon', 'Asagi', 'Shusui',
+            'Goldie', 'Shimmer', 'Glimmer', 'Flash', 'Suki', 'Hana', 'Yuki', 'Sakura',
+            'Bubbles', 'Finley', 'Splash', 'Ripple', 'Current', 'Float', 'Drift', 'Glide',
+            'Pearl', 'Coral', 'Marina', 'Aqua', 'Wave', 'Tide'
+        ];
+
+        const ANT_NAME_POOL = [
+            'Scout', 'Worker', 'Tiny', 'Speedy', 'Marcher', 'Hauler', 'Digger', 'Builder',
+            'Forager', 'Soldier', 'Crawler', 'Climber', 'Antony', 'Adam', 'Andy', 'Atlas',
+            'Busy', 'Dotty', 'Bit', 'Chip', 'Crumb', 'Grain', 'Speck', 'Mite',
+            'Red', 'Black', 'Fire', 'Leaf', 'Carpenter', 'Harvester'
+        ];
+
         let squirrelFamilies = new Map(); // Map squirrel ID to name
         let ratFamilies = new Map(); // Map rat ID to name
         let crowFamilies = new Map(); // Map crow ID to name
         let owlFamilies = new Map(); // Map owl ID to name
         let treeFamilies = new Map(); // Map tree ID to name
+        let frogFamilies = new Map(); // Map frog ID to name
+        let koiFamilies = new Map(); // Map koi ID to name
+        let antFamilies = new Map(); // Map ant ID to name
         let windChimeSounds = [];
         let windChimeTimeout = null;
         let lastWindChimeTime = 0;
@@ -2168,6 +2192,7 @@ if (rainsCompleted >= 5 && ponds.length === 0) {
 
     // Spawn a couple of koi in the pond
     koi.push({
+        id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
         x: pondX,
         y: pondY,
         pondIndex: 0,
@@ -2175,6 +2200,7 @@ if (rainsCompleted >= 5 && ponds.length === 0) {
         color: '#FF6B00'
     });
     koi.push({
+        id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
         x: pondX,
         y: pondY,
         pondIndex: 0,
@@ -2184,6 +2210,7 @@ if (rainsCompleted >= 5 && ponds.length === 0) {
 
     // Spawn a frog near the pond
     frogs.push({
+        id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
         x: pondX + (Math.random() - 0.5) * 60,
         y: canvas.height * GROUND_HEIGHT_RATIO,
         jumpTimer: 0,
@@ -3654,6 +3681,12 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                     animalExists = owls.includes(lockedAnimal);
                 } else if (lockedAnimalType === 'tree') {
                     animalExists = trees.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'frog') {
+                    animalExists = frogs.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'koi') {
+                    animalExists = koi.includes(lockedAnimal);
+                } else if (lockedAnimalType === 'ant') {
+                    animalExists = ants.includes(lockedAnimal);
                 }
 
                 if (animalExists) {
@@ -3738,7 +3771,8 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                     } else if (lockedAnimalType === 'tree') {
                         health = lockedAnimal.health || 100;
                         hunger = -1; // Trees don't have hunger
-                        currentAction = `Growing (${Math.floor(lockedAnimal.age / 1000)}s)`;
+                        const ageInDays = (lockedAnimal.age / 1000 / 60 / 60 / 24).toFixed(1); // Convert ms to days
+                        currentAction = `Growing (${ageInDays} days)`;
                     } else if (lockedAnimalType === 'crow') {
                         health = 100;
                         hunger = 0;
@@ -3747,6 +3781,18 @@ const sunsetType = Math.floor(simulationTime / dayNightDuration * 10) % 6; // Ch
                         health = 100;
                         hunger = 0;
                         currentAction = getReadableAction(lockedAnimal.state, lockedAnimalType);
+                    } else if (lockedAnimalType === 'frog') {
+                        health = 100;
+                        hunger = -1; // Frogs don't have hunger display
+                        currentAction = lockedAnimal.jumping ? "Jumping" : (lockedAnimal.tongueOut ? "Catching" : "Resting");
+                    } else if (lockedAnimalType === 'koi') {
+                        health = 100;
+                        hunger = -1; // Koi don't have hunger display
+                        currentAction = "Swimming";
+                    } else if (lockedAnimalType === 'ant') {
+                        health = 100;
+                        hunger = -1; // Ants don't have hunger display
+                        currentAction = lockedAnimal.state === 'returningWithFood' ? "Carrying Food" : "Exploring";
                     }
 
                         // Draw current action text
@@ -14003,6 +14049,7 @@ function spawnAnt() {
     const distance = antHill.size * 0.8;
     
     ants.push({
+        id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
         x: antHill.x + Math.cos(angle) * distance,
         y: antHill.y + Math.sin(angle) * distance,
         angle: Math.random() * Math.PI * 2, // Random direction
@@ -15855,6 +15902,63 @@ function spawnOwls() {
             return treeFamilies.get(tree.id);
         }
 
+        // Get name for a frog
+        function getFrogName(frog) {
+            if (!frogFamilies.has(frog.id)) {
+                const baseName = FROG_NAME_POOL[Math.floor(Math.random() * FROG_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(frogFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                frogFamilies.set(frog.id, finalName);
+            }
+
+            return frogFamilies.get(frog.id);
+        }
+
+        // Get name for a koi
+        function getKoiName(koiFish) {
+            if (!koiFamilies.has(koiFish.id)) {
+                const baseName = KOI_NAME_POOL[Math.floor(Math.random() * KOI_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(koiFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                koiFamilies.set(koiFish.id, finalName);
+            }
+
+            return koiFamilies.get(koiFish.id);
+        }
+
+        // Get name for an ant
+        function getAntName(ant) {
+            if (!antFamilies.has(ant.id)) {
+                const baseName = ANT_NAME_POOL[Math.floor(Math.random() * ANT_NAME_POOL.length)];
+                let finalName = baseName;
+                let suffix = 2;
+                const existingNames = Array.from(antFamilies.values());
+
+                while (existingNames.includes(finalName)) {
+                    finalName = `${baseName} ${suffix}`;
+                    suffix++;
+                }
+
+                antFamilies.set(ant.id, finalName);
+            }
+
+            return antFamilies.get(ant.id);
+        }
+
         // General function to get name for any animal type
         function getAnimalName(animal, type) {
             if (type === 'bird') return getBirdName(animal);
@@ -15863,6 +15967,9 @@ function spawnOwls() {
             if (type === 'crow') return getCrowName(animal);
             if (type === 'owl') return getOwlName(animal);
             if (type === 'tree') return getTreeName(animal);
+            if (type === 'frog') return getFrogName(animal);
+            if (type === 'koi') return getKoiName(animal);
+            if (type === 'ant') return getAntName(animal);
             return 'Unknown';
         }
 
@@ -16726,6 +16833,7 @@ if (antHill) {
                 // Add 2 koi to the pond
                 for (let i = 0; i < 2; i++) {
                     koi.push({
+                        id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
                         x: pondX,
                         y: pondY,
                         color: ['#FF6B35', '#FFD23F', '#FFFFFF', '#FF006E'][Math.floor(Math.random() * 4)],
@@ -16736,6 +16844,7 @@ if (antHill) {
 
                 // Add 1 frog to the pond
                 frogs.push({
+                    id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
                     x: pondX + (Math.random() - 0.5) * pondWidth * 0.8,
                     y: canvas.height * GROUND_HEIGHT_RATIO,
                     jumping: false,
@@ -17432,6 +17541,7 @@ spawnKoiBtn.addEventListener('click', () => {
 
         const pond = ponds[0];
         koi.push({
+            id: Math.random().toString(36).substr(2, 9), // Unique ID for naming
             x: pond.x + pond.width / 2,
             y: pond.y + pond.height / 2,
             pondIndex: 0,
@@ -17760,6 +17870,72 @@ if (gameboy) {
                 lockedAnimalType = 'tree';
                 lockedAnimalTime = Date.now(); // Set lock time for auto-fade
                 debugLog(`Locked onto tree: ${getTreeName(tree)}`);
+            }
+            return;
+        }
+    }
+
+    // Check frogs
+    for (const frog of frogs) {
+        const frogDist = Math.sqrt(
+            Math.pow(scaledX - frog.x, 2) +
+            Math.pow(scaledY - frog.y, 2)
+        );
+        if (frogDist < 20) { // 20px click radius (smaller for frogs)
+            clickedAnAnimal = true;
+            if (lockedAnimal === frog && lockedAnimalType === 'frog') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from frog`);
+            } else {
+                lockedAnimal = frog;
+                lockedAnimalType = 'frog';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto frog: ${getFrogName(frog)}`);
+            }
+            return;
+        }
+    }
+
+    // Check koi
+    for (const koiFish of koi) {
+        const koiDist = Math.sqrt(
+            Math.pow(scaledX - koiFish.x, 2) +
+            Math.pow(scaledY - koiFish.y, 2)
+        );
+        if (koiDist < 25) { // 25px click radius
+            clickedAnAnimal = true;
+            if (lockedAnimal === koiFish && lockedAnimalType === 'koi') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from koi`);
+            } else {
+                lockedAnimal = koiFish;
+                lockedAnimalType = 'koi';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto koi: ${getKoiName(koiFish)}`);
+            }
+            return;
+        }
+    }
+
+    // Check ants
+    for (const ant of ants) {
+        const antDist = Math.sqrt(
+            Math.pow(scaledX - ant.x, 2) +
+            Math.pow(scaledY - ant.y, 2)
+        );
+        if (antDist < 15) { // 15px click radius (smaller for ants)
+            clickedAnAnimal = true;
+            if (lockedAnimal === ant && lockedAnimalType === 'ant') {
+                lockedAnimal = null;
+                lockedAnimalType = null;
+                debugLog(`Unlocked from ant`);
+            } else {
+                lockedAnimal = ant;
+                lockedAnimalType = 'ant';
+                lockedAnimalTime = Date.now(); // Set lock time for auto-fade
+                debugLog(`Locked onto ant: ${getAntName(ant)}`);
             }
             return;
         }
